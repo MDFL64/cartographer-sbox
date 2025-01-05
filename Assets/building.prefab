@@ -1,0 +1,36 @@
+{
+  "RootObject": {
+    "__guid": "76ecaaa5-d280-43da-b88e-81b3f9ec87f0",
+    "Flags": 0,
+    "Name": "ProcMesh",
+    "Enabled": true,
+    "Components": [
+      {
+        "__type": "ProcMesh",
+        "__guid": "f5bdb2d7-c3f4-4a85-a6bf-083643bfb9c4"
+      },
+      {
+        "__type": "Sandbox.ModelRenderer",
+        "__guid": "676ed152-c099-42e4-b3b3-4d84ce2c3163",
+        "BodyGroups": 18446744073709551615,
+        "CreateAttachments": false,
+        "MaterialOverride": "materials/default/vertex_color.vmat",
+        "RenderOptions": {
+          "GameLayer": true,
+          "OverlayLayer": false,
+          "BloomLayer": false,
+          "AfterUILayer": false
+        },
+        "RenderType": "On",
+        "Tint": "1,1,1,1"
+      }
+    ]
+  },
+  "ShowInMenu": false,
+  "MenuPath": null,
+  "MenuIcon": null,
+  "DontBreakAsTemplate": false,
+  "ResourceVersion": 1,
+  "__references": [],
+  "__version": 1
+}
