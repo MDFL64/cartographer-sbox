@@ -174,7 +174,7 @@
             "_type": "gameobject",
             "go": "3ee1c9f4-07be-4e0b-8b23-67bee2d8ec8a"
           },
-          "TerrainMat": "terrain/materials/ground037.tmat"
+          "TerrainMat": "grass.tmat"
         }
       ]
     }
@@ -207,8 +207,6 @@
   "ResourceVersion": 2,
   "Title": "minimal",
   "Description": null,
-  "__references": [
-    "garry.ground037#59704"
-  ],
+  "__references": [],
   "__version": 2
 }

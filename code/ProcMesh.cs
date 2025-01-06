@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using Sandbox;
 
@@ -8,6 +9,7 @@ public sealed class ProcMesh : Component
 	ModelRenderer render {get;set;}
 
 	public Vector2[] Path;
+	public Vector3[] PathRoad;
 	public float Bottom = -1000;
 	public float Top = 200;
 	public int ColorSeed = 0;
@@ -134,17 +136,58 @@ public sealed class ProcMesh : Component
 		}
 
 		var m = new Mesh();
-		//m.PrimitiveType = MeshPrimitiveType.Triangles;
 		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
 		m.CreateIndexBuffer(indices.Count,indices);
+		return m;
+	}
 
+	private Mesh BuildRoad(Span<Vector3> path) {
+		var verts = new List<Vertex>();
+		var indices = new List<int>();
+
+		Vector3 side_color = Color.FromRgb(0x333333);
+
+		for (int i=0;i<path.Length-1;i++) {
+			int index_1 = verts.Count;
+			var v1 = path[i];
+			var v2 = path[i+1];
+
+			var tangent = new Vector2(v2-v1).Normal;
+			var normal = new Vector2(tangent.y,-tangent.x);
+			var offset = new Vector3(normal * Region.ScaleMetersXY(6),0);
+			var offset2 = Vector3.Up * 12;
+			var up = Vector3.Up;
+
+			verts.Add(new Vertex(v1 - offset + offset2,up,tangent,Vector2.Zero,side_color));
+			verts.Add(new Vertex(v1 + offset + offset2,up,tangent,Vector2.Zero,side_color));
+
+			verts.Add(new Vertex(v2 - offset + offset2,up,tangent,Vector2.Zero,side_color));
+			verts.Add(new Vertex(v2 + offset + offset2,up,tangent,Vector2.Zero,side_color));
+
+			indices.Add(index_1 + 3);
+			indices.Add(index_1 + 0);
+			indices.Add(index_1 + 1);
+
+			indices.Add(index_1 + 2);
+			indices.Add(index_1 + 0);
+			indices.Add(index_1 + 3);
+		}
+
+		var m = new Mesh();
+		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
+		m.CreateIndexBuffer(indices.Count,indices);
 		return m;
 	}
 
 	protected override void OnStart()
 	{
 		//var path = new[] {new Vector2(100,0),new Vector2(100,100),new Vector2(0,100),new Vector2(0,0)};
-		var mesh = BuildFromPath(Path,ColorSeed);
+		Mesh mesh;
+		if (PathRoad != null) {
+			mesh = BuildRoad(PathRoad);
+		} else {
+			mesh = BuildFromPath(Path,ColorSeed);
+		}
 
 		var model = Model.Builder.AddMesh(mesh).Create();
 		render.Model = model;

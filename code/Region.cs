@@ -8,6 +8,11 @@ public class BuildingInfo {
 	public Vector2[] Nodes;
 }
 
+public class RoadInfo {
+	public Vector3 BasePos;
+	public Vector3[] Nodes;
+}
+
 public sealed class Region : Component
 {
 	int CurrentX = Int32.MaxValue;
@@ -18,12 +23,10 @@ public sealed class Region : Component
 	const float SCALE_XY = 1;
 	const float SCALE_Z = 1;
 
-	const double UTM_X = 449993.99997825973;
-	const double UTM_Y = 4910006.000037198 - 10012;
-
 	const int TILE_COUNT = 20;
 
 	public List<BuildingInfo> Buildings;
+	public List<RoadInfo> Roads;
 
 	[Property]
 	GameObject Spectator;
@@ -36,19 +39,15 @@ public sealed class Region : Component
 		return meters * SCALE_XY * 39.3701f;
 	}
 
-	public static float ScaleMetersZ(float meters) {
+	public static float ScaleElevation(float meters) {
 		return meters * SCALE_Z * 39.3701f;
 	}
 
 	protected override void OnStart()
 	{
-		Vector2 SpawnPoint = new Vector2(7655.545f,4544.221f);
-		//var pos = UTMToLocal(457649.545, 4904538.221) * ScaleMetersXY(1);
-		//Log.Info("!?!? "+UTMToLocal(457649.545, 4904538.221));
+		Vector2 SpawnPoint = new Vector2(7655.545f,4544.221f - 10012);
 		Spectator.WorldPosition = SpawnPoint * ScaleMetersXY(1);
 		FetchOSM();
-		//DebugPos(457649.545, 4904538.221);
-		//SpawnBuilding();
 	}
 
 	private async void FetchOSM() {
@@ -60,31 +59,56 @@ public sealed class Region : Component
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
 
-		var list = new List<BuildingInfo>();
+		var building_list = new List<BuildingInfo>();
+		var road_list = new List<RoadInfo>();
 
 		while (stream.Position < stream.Length) {
-			var base_x = reader.ReadSingle();
-			var base_y = reader.ReadSingle();
-			var elevation = reader.ReadSingle();
-			var height = reader.ReadSingle();
-			var base_pos = new Vector2(base_x,base_y);
-			var nodes = new Vector2[reader.ReadUInt16()];
-			for (int i=0;i<nodes.Length;i++) {
-				var x = reader.ReadSingle();
-				var y = reader.ReadSingle();
-				var pos = new Vector2(x,y);
-				nodes[i] = pos;
+			byte kind = reader.ReadByte();
+			if (kind == 0) {
+				// building
+				var base_x = reader.ReadSingle();
+				var base_y = reader.ReadSingle();
+				var elevation = reader.ReadSingle();
+				var height = reader.ReadSingle();
+				var base_pos = new Vector2(base_x,base_y);
+				var nodes = new Vector2[reader.ReadUInt16()];
+				for (int i=0;i<nodes.Length;i++) {
+					var x = reader.ReadSingle();
+					var y = reader.ReadSingle();
+					var pos = new Vector2(x,y);
+					nodes[i] = pos;
+				}
+				var building = new BuildingInfo() {
+					BasePos = base_pos,
+					BaseLow = elevation,
+					Height = height,
+					Nodes = nodes
+				};
+				building_list.Add(building);
+			} else if (kind == 1) {
+				// road
+				var base_x = reader.ReadSingle();
+				var base_y = reader.ReadSingle();
+				var base_z = reader.ReadSingle();
+				var base_pos = new Vector3(base_x,base_y,base_z);
+				var nodes = new Vector3[reader.ReadUInt16()];
+				for (int i=0;i<nodes.Length;i++) {
+					var x = reader.ReadSingle();
+					var y = reader.ReadSingle();
+					var z = reader.ReadSingle();
+					var pos = new Vector3(x,y,z);
+					nodes[i] = pos;
+				}
+				var road = new RoadInfo() {
+					BasePos = base_pos,
+					Nodes = nodes
+				};
+				road_list.Add(road);
 			}
-			var building = new BuildingInfo() {
-				BasePos = base_pos,
-				BaseLow = elevation,
-				Height = height,
-				Nodes = nodes
-			};
-			list.Add(building);
 		}
 
-		Buildings = list;
+		Roads = road_list;
+		Buildings = building_list;
 	}
 
 	private void DebugPos(Vector2 pos) {
@@ -99,9 +123,11 @@ public sealed class Region : Component
 		var building = BuildingPrefab.Clone();
 		building.Parent = parent;
 
-		float z_pos = ScaleMetersZ(info.BaseLow - ElevationTile.BASE_ELEVATION);
+		float z_pos = ScaleElevation(info.BaseLow - ElevationTile.BASE_ELEVATION);
+		var pos = new Vector3(info.BasePos * ScaleMetersXY(1),z_pos);
+		pos.y *= -1;
 
-		building.WorldPosition = new Vector3(info.BasePos * ScaleMetersXY(1),z_pos);
+		building.WorldPosition = new Vector3(pos);
 		var mesh = building.GetComponent<ProcMesh>();
 		var points = new Vector2[info.Nodes.Length];
 		for (int i=0;i<points.Length;i++) {
@@ -113,10 +139,28 @@ public sealed class Region : Component
 		mesh.Top = ScaleMetersXY(info.Height);
 	}
 
+	public void SpawnRoad(RoadInfo info, GameObject parent) {
+		//var xform = new Transform(info.BasePos * ScaleMetersXY(1));
+		var building = BuildingPrefab.Clone();
+		building.Parent = parent;
+
+		float z_pos = ScaleElevation(info.BasePos.z - ElevationTile.BASE_ELEVATION);
+		var pos = new Vector3(info.BasePos * ScaleMetersXY(1),z_pos);
+		pos.y *= -1;
+
+		building.WorldPosition = new Vector3(pos);
+		var mesh = building.GetComponent<ProcMesh>();
+		var points = new Vector3[info.Nodes.Length];
+		for (int i=0;i<points.Length;i++) {
+			points[i] = info.Nodes[i] * ScaleMetersXY(1);
+		}
+		mesh.PathRoad = points;
+	}
+
 	public int MapTileFromMeters(Vector2 pos) {
 		float tile_size = 512;
 		int x = (int)Math.Floor(pos.x / tile_size);
-		int y = (int)Math.Floor((10012 - pos.y) / tile_size);
+		int y = (int)Math.Floor(pos.y / tile_size);
 		return MapTile(x,y);
 	}
 
@@ -125,8 +169,7 @@ public sealed class Region : Component
 
 		var cam_pos = Scene.Camera.WorldPosition;
 
-		var base_pos = WorldPosition + new Vector3(0,ScaleMetersXY(10012),0);
-		var local_pos = cam_pos - base_pos;
+		var local_pos = Transform.World.PointToLocal(cam_pos);
 		int tile_x = (int)Math.Floor(local_pos.x / tile_size);
 		int tile_y = (int)Math.Floor(-local_pos.y / tile_size);
 

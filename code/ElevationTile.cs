@@ -19,7 +19,8 @@ public sealed class ElevationTile : Component
 	protected override void OnUpdate()
 	{
 		var buildings = ParentRegion.Buildings;
-		if (!HasBuildings && Terrain != null && buildings != null) {
+		var roads = ParentRegion.Roads;
+		if (!HasBuildings && Terrain != null && buildings != null && roads != null) {
 			int seed = 0;
 			foreach (var b in buildings) {
 				seed++;
@@ -27,6 +28,14 @@ public sealed class ElevationTile : Component
 					ParentRegion.SpawnBuilding(b,this.GameObject,seed);
 				}
 			}
+			int rc = 0;
+			foreach (var r in roads) {
+				if (TileNumber == ParentRegion.MapTileFromMeters(r.BasePos)) {
+					rc++;
+					ParentRegion.SpawnRoad(r,this.GameObject);
+				}
+			}
+			Log.Info("roads = "+rc);
 			HasBuildings = true;
 		}
 	}
@@ -65,14 +74,14 @@ public sealed class ElevationTile : Component
 		float tile_size = Region.ScaleMetersXY(512);
 
 		storage.TerrainSize = tile_size;
-		storage.TerrainHeight = Region.ScaleMetersZ(elev_range);
+		storage.TerrainHeight = Region.ScaleElevation(elev_range);
 
 		{
-			float y_offset = Region.ScaleMetersXY(REGION_SIZE);
+			//float y_offset = Region.ScaleMetersXY(REGION_SIZE);
 
-			float z_pos = Region.ScaleMetersZ(elev_base - BASE_ELEVATION);
+			float z_pos = Region.ScaleElevation(elev_base - BASE_ELEVATION);
 			float x_pos = tile_size * (TileNumber % 20);
-			float y_pos = y_offset - tile_size * (1 + MathX.Floor(TileNumber / 20));
+			float y_pos = -tile_size * MathX.Floor(1 + TileNumber / 20);
 
 			/*Transform.*/
 			LocalPosition = new Vector3(x_pos,y_pos,z_pos);
