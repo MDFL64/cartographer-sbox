@@ -13,12 +13,17 @@ public class RoadInfo {
 	public Vector3[] Nodes;
 }
 
+public struct TerrainVertex {
+	public Vector3 Position;
+	public Vector3 Normal;
+}
+
 public sealed class Region : Component
 {
 	int CurrentX = Int32.MaxValue;
 	int CurrentY = Int32.MaxValue;
 
-	int TileViewDistance = 1;
+	int TileViewDistance = 2;
 
 	const float SCALE_XY = 1;
 	const float SCALE_Z = 1;
@@ -157,6 +162,16 @@ public sealed class Region : Component
 		mesh.PathRoad = points;
 	}
 
+	public void SpawnTerrain(TerrainVertex[] vertices, int[] indices, GameObject parent) {
+		var building = BuildingPrefab.Clone();
+		building.Parent = parent;
+		building.LocalPosition = Vector3.Zero;
+
+		var mesh = building.GetComponent<ProcMesh>();
+		mesh.TerrainVertices = vertices;
+		mesh.TerrainIndices = indices;
+	}
+
 	public int MapTileFromMeters(Vector2 pos) {
 		float tile_size = 512;
 		int x = (int)Math.Floor(pos.x / tile_size);
@@ -205,8 +220,9 @@ public sealed class Region : Component
 			if (tile != null) {
 				int tile_id = tile.TileNumber;
 				if (!wanted_ids.Remove(tile_id)) {
+					tile.ReleaseStorage();
 					child.Destroy();
-					Log.Info("todo kill old");
+					//Log.Info("todo kill old");
 				}
 			}
 		}

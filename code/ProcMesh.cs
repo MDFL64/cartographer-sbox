@@ -10,6 +10,10 @@ public sealed class ProcMesh : Component
 
 	public Vector2[] Path;
 	public Vector3[] PathRoad;
+
+	public TerrainVertex[] TerrainVertices;
+	public int[] TerrainIndices;
+
 	public float Bottom = -1000;
 	public float Top = 200;
 	public int ColorSeed = 0;
@@ -179,11 +183,29 @@ public sealed class ProcMesh : Component
 		return m;
 	}
 
+	private Mesh BuildTerrain(Span<TerrainVertex> vertices, Span<int> indices) {
+		var verts = new List<Vertex>();
+
+		Vector3 ground_color = Color.FromRgb(0xFFFFFF);
+
+		for (int i=0;i<vertices.Length-1;i++) {
+			var tangent = Vector3.Forward;
+			verts.Add(new Vertex(vertices[i].Position,vertices[i].Normal,tangent,Vector2.Zero,ground_color));
+		}
+
+		var m = new Mesh();
+		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
+		m.CreateIndexBuffer(indices.Length,indices);
+		return m;
+	}
+
 	protected override void OnStart()
 	{
 		//var path = new[] {new Vector2(100,0),new Vector2(100,100),new Vector2(0,100),new Vector2(0,0)};
 		Mesh mesh;
-		if (PathRoad != null) {
+		if (TerrainVertices != null) {
+			mesh = BuildTerrain(TerrainVertices,TerrainIndices);
+		} else if (PathRoad != null) {
 			mesh = BuildRoad(PathRoad);
 		} else {
 			mesh = BuildFromPath(Path,ColorSeed);

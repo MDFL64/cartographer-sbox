@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Sandbox;
 
 public sealed class ElevationTile : Component
@@ -40,7 +41,14 @@ public sealed class ElevationTile : Component
 		}
 	}
 
+	static Stack<TerrainStorage> StoragePool = new Stack<TerrainStorage>();
+
 	private TerrainStorage CreateStorage() {
+		if (StoragePool.Count>0) {
+			return StoragePool.Pop();
+		}
+		Log.Info("NEW storage");
+
 		var storage = new TerrainStorage();
 		if (storage.Resolution != 512) {
 			storage.SetResolution(512);
@@ -48,59 +56,57 @@ public sealed class ElevationTile : Component
 		storage.Materials.Add(TerrainMat);
 		return storage;
 	}
+ 
+	public void ReleaseStorage() {
+		var storage = Terrain?.Storage;
+		if (storage != null) {
+			StoragePool.Push(storage);
+		}
+	}
 
 	private async void FetchTerrain() {
 		var empty = new System.Net.Http.ByteArrayContent(new byte[0]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/e/"+TileNumber, "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/file/tile1", "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
 
-		var width = reader.ReadUInt16();
-		var height = reader.ReadUInt16();
-
 		var elev_base = reader.ReadSingle();
 		var elev_range = reader.ReadSingle();
 
-		var terrain = Components.GetOrCreate<Terrain>();
-		terrain.EnableCollision = true;
-		//terrain.ClipMapLodLevels = 5;
-		//terrain.ClipMapLodExtentTexels = 128;
-
-		var storage = CreateStorage();
-
 		float tile_size = Region.ScaleMetersXY(512);
-
-		storage.TerrainSize = tile_size;
-		storage.TerrainHeight = Region.ScaleElevation(elev_range);
-
 		{
-			//float y_offset = Region.ScaleMetersXY(REGION_SIZE);
-
 			float z_pos = Region.ScaleElevation(elev_base - BASE_ELEVATION);
 			float x_pos = tile_size * (TileNumber % 20);
-			float y_pos = -tile_size * MathX.Floor(1 + TileNumber / 20);
-
-			/*Transform.*/
+			float y_pos = -tile_size * MathX.Floor(TileNumber / 20);
 			LocalPosition = new Vector3(x_pos,y_pos,z_pos);
 		}
 
-		if (width == 512 && height == 512) {
-			for (int i=0;i<512*512;i++) {
-				storage.HeightMap[i] = reader.ReadUInt16();
-			}
-		} else {
-			int y_offset = 512 - height;
-			for (int y=0;y<height;y++) {
-				for (int x=0;x<width;x++) {
-					storage.HeightMap[(y_offset + y) * 512 + x] = reader.ReadUInt16();
-				}
-			}
+		var vertex_count = reader.ReadUInt16();
+		var vertices = new TerrainVertex[vertex_count];
+
+		// just transform to sbox coords here
+		for (int i=0;i<vertices.Length;i++) {
+			float x = (float)reader.ReadUInt16() / 65535 * tile_size;
+			float y = (float)reader.ReadUInt16() / 65535 * tile_size;
+			float z = Region.ScaleElevation((float)reader.ReadUInt16() / 65535 * elev_range);
+			vertices[i].Position = new Vector3(x,-y,z);
+
+			float nx = (float)reader.ReadSByte() / 127;
+			float ny = (float)reader.ReadSByte() / 127;
+			float nz = (float)reader.ReadSByte() / 127;
+			vertices[i].Normal = new Vector3(nx,-ny,nz);
 		}
-		// set storage
-		terrain.Storage = storage;
-		Terrain = terrain;
+
+		var index_count = reader.ReadUInt16();
+		var indices = new int[index_count*3];
+
+		for (int i=0;i<indices.Length;i++) {
+			indices[i] = reader.ReadUInt16();
+		}
+
+		ParentRegion.SpawnTerrain(vertices,indices,GameObject);
 	}
 }
