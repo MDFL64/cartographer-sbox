@@ -11,7 +11,7 @@
           "__type": "Sandbox.SceneInformation",
           "__guid": "3275a4bf-0b70-47f4-8cc4-697a69b8d179",
           "Author": null,
-          "Changes": null,
+          "Changes": "",
           "Description": "",
           "Group": null,
           "OnComponentDestroy": null,
@@ -206,6 +206,10 @@
         {
           "__type": "Spectator",
           "__guid": "e5f2f8d3-4d71-4c81-9af8-6a5a5ac5ac14",
+          "Projectile": {
+            "_type": "gameobject",
+            "prefab": "cube.prefab"
+          },
           "OnComponentDestroy": null,
           "OnComponentDisabled": null,
           "OnComponentEnabled": null,
@@ -223,16 +227,16 @@
       "Components": [
         {
           "__type": "Region",
-          "__guid": "c3d7600c-adf7-4662-b2cc-692c257f883f",
-          "BuildingPrefab": {
+          "__guid": "f982ec35-587b-4769-8a89-b03d2db46a08",
+          "MatGround": "dev/helper/testgrid.vmat",
+          "MeshPrefab": {
             "_type": "gameobject",
-            "prefab": "building.prefab"
+            "prefab": "mesh.prefab"
           },
           "Spectator": {
             "_type": "gameobject",
             "go": "3ee1c9f4-07be-4e0b-8b23-67bee2d8ec8a"
           },
-          "TerrainMat": "grass.tmat",
           "OnComponentDestroy": null,
           "OnComponentDisabled": null,
           "OnComponentEnabled": null,

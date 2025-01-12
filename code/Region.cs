@@ -36,9 +36,10 @@ public sealed class Region : Component
 	[Property]
 	GameObject Spectator;
 	[Property]
-	GameObject BuildingPrefab;
+	public GameObject MeshPrefab;
+	
 	[Property]
-	TerrainMaterial TerrainMat;
+	public Material MatGround;
 
 	public static float ScaleMetersXY(float meters) {
 		return meters * SCALE_XY * 39.3701f;
@@ -125,7 +126,7 @@ public sealed class Region : Component
 
 	public void SpawnBuilding(BuildingInfo info, GameObject parent, int index) {
 		//var xform = new Transform(info.BasePos * ScaleMetersXY(1));
-		var building = BuildingPrefab.Clone();
+		/*var building = BuildingPrefab.Clone();
 		building.Parent = parent;
 
 		float z_pos = ScaleElevation(info.BaseLow - ElevationTile.BASE_ELEVATION);
@@ -141,12 +142,12 @@ public sealed class Region : Component
 		mesh.Path = points;
 		mesh.ColorSeed = index;
 		// BUILDING height is scaled using xy -- todo rename this
-		mesh.Top = ScaleMetersXY(info.Height);
+		mesh.Top = ScaleMetersXY(info.Height);*/
 	}
 
 	public void SpawnRoad(RoadInfo info, GameObject parent) {
 		//var xform = new Transform(info.BasePos * ScaleMetersXY(1));
-		var building = BuildingPrefab.Clone();
+		/*var building = BuildingPrefab.Clone();
 		building.Parent = parent;
 
 		float z_pos = ScaleElevation(info.BasePos.z - ElevationTile.BASE_ELEVATION);
@@ -159,17 +160,7 @@ public sealed class Region : Component
 		for (int i=0;i<points.Length;i++) {
 			points[i] = info.Nodes[i] * ScaleMetersXY(1);
 		}
-		mesh.PathRoad = points;
-	}
-
-	public void SpawnTerrain(TerrainVertex[] vertices, int[] indices, GameObject parent) {
-		var building = BuildingPrefab.Clone();
-		building.Parent = parent;
-		building.LocalPosition = Vector3.Zero;
-
-		var mesh = building.GetComponent<ProcMesh>();
-		mesh.TerrainVertices = vertices;
-		mesh.TerrainIndices = indices;
+		mesh.PathRoad = points;*/
 	}
 
 	public int MapTileFromMeters(Vector2 pos) {
@@ -216,13 +207,11 @@ public sealed class Region : Component
 		}
 
 		foreach (var child in GameObject.Children) {
-			var tile = child.GetComponent<ElevationTile>();
+			var tile = child.GetComponent<MapTile>();
 			if (tile != null) {
 				int tile_id = tile.TileNumber;
 				if (!wanted_ids.Remove(tile_id)) {
-					tile.ReleaseStorage();
 					child.Destroy();
-					//Log.Info("todo kill old");
 				}
 			}
 		}
@@ -237,9 +226,7 @@ public sealed class Region : Component
 		var child = new GameObject();
 		child.Name = "Tile";
 		child.Parent = this.GameObject;
-		var tile = child.Components.GetOrCreate<ElevationTile>();
-		tile.TerrainMat = TerrainMat;
-		//Log.Info("AAA "+tile.TerrainMat);
+		var tile = child.Components.GetOrCreate<MapTile>();
 		tile.TileNumber = id;
 		tile.ParentRegion = this;
 	}

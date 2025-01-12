@@ -1,16 +1,22 @@
-using System.Diagnostics;
-using Sandbox;
-
-public sealed class ElevationTile : Component
+public sealed class MapTile : Component
 {	
 	public const float BASE_ELEVATION = 1450;
-	const float REGION_SIZE = 10012;
+	//const float REGION_SIZE = 10012;
 
 	public int TileNumber = 0;
-	public TerrainMaterial TerrainMat;
 	public Region ParentRegion;
+
 	private bool HasBuildings = false;
-	private Terrain Terrain;
+
+	public ProcMesh SpawnMesh(string name) {
+		var obj = ParentRegion.MeshPrefab.Clone();
+		obj.Parent = GameObject;
+		obj.LocalPosition = Vector3.Zero;
+		obj.Name = name;
+
+		var mesh = obj.GetComponent<ProcMesh>();
+		return mesh;
+	}
 
 	protected override void OnStart()
 	{
@@ -21,7 +27,7 @@ public sealed class ElevationTile : Component
 	{
 		var buildings = ParentRegion.Buildings;
 		var roads = ParentRegion.Roads;
-		if (!HasBuildings && Terrain != null && buildings != null && roads != null) {
+		if (!HasBuildings && buildings != null && roads != null) {
 			int seed = 0;
 			foreach (var b in buildings) {
 				seed++;
@@ -41,34 +47,11 @@ public sealed class ElevationTile : Component
 		}
 	}
 
-	static Stack<TerrainStorage> StoragePool = new Stack<TerrainStorage>();
-
-	private TerrainStorage CreateStorage() {
-		if (StoragePool.Count>0) {
-			return StoragePool.Pop();
-		}
-		Log.Info("NEW storage");
-
-		var storage = new TerrainStorage();
-		if (storage.Resolution != 512) {
-			storage.SetResolution(512);
-		}
-		storage.Materials.Add(TerrainMat);
-		return storage;
-	}
- 
-	public void ReleaseStorage() {
-		var storage = Terrain?.Storage;
-		if (storage != null) {
-			StoragePool.Push(storage);
-		}
-	}
-
 	private async void FetchTerrain() {
 		var empty = new System.Net.Http.ByteArrayContent(new byte[0]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/file/tile1", "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/tile"+TileNumber, "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
@@ -107,6 +90,7 @@ public sealed class ElevationTile : Component
 			indices[i] = reader.ReadUInt16();
 		}
 
-		ParentRegion.SpawnTerrain(vertices,indices,GameObject);
+		var mesh = SpawnMesh("Terrain");
+		mesh.SetTerrain(vertices,indices,ParentRegion.MatGround);
 	}
 }

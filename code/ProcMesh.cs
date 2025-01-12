@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Sandbox;
@@ -6,25 +7,28 @@ using Sandbox;
 public sealed class ProcMesh : Component
 {
 	[RequireComponent]
-	ModelRenderer render {get;set;}
+	ModelRenderer Render {get;set;}
+	[RequireComponent]
+	ModelCollider Collider {get;set;}
 
-	public Vector2[] Path;
-	public Vector3[] PathRoad;
+	//public Vector2[] Path;
+	//public Vector3[] PathRoad;
 
-	public TerrainVertex[] TerrainVertices;
-	public int[] TerrainIndices;
+	public Vertex[] Vertices;
+	public int[] Indices;
+	public Material Material;
 
 	public float Bottom = -1000;
 	public float Top = 200;
 	public int ColorSeed = 0;
 
 	[StructLayout( LayoutKind.Sequential )]
-	struct Vertex {
-		Vector3 Pos;
-		Vector3 Normal;
-		Vector3 Tangent;
-		Vector2 TexCoord;
-		Vector3 Color;
+	public struct Vertex {
+		public Vector3 Pos;
+		public Vector3 Normal;
+		public Vector3 Tangent;
+		public Vector2 TexCoord;
+		public Vector3 Color;
 
 		public Vertex(Vector3 pos, Vector3 normal, Vector3 tangent, Vector2 tc, Vector3 color) {
 			Pos = pos;
@@ -32,18 +36,16 @@ public sealed class ProcMesh : Component
 			Tangent = tangent;
 			TexCoord = tc;
 			Color = color;
-			//Log.Info(">>> "+normal);
 		}
 	}
 	private VertexAttribute[] GetVertexLayout() {
-		return new VertexAttribute[] {
+		return [
 			new ( VertexAttributeType.Position, VertexAttributeFormat.Float32, 3 ),
 			new ( VertexAttributeType.Normal, VertexAttributeFormat.Float32, 3 ),
 			new ( VertexAttributeType.Tangent, VertexAttributeFormat.Float32, 3 ),
 			new ( VertexAttributeType.TexCoord, VertexAttributeFormat.Float32, 2 ),
 			new ( VertexAttributeType.Color, VertexAttributeFormat.Float32, 3 )
-			//new ( VertexAttributeType.TexCoord, VertexAttributeFormat.Float32, 4, 4 )
-		};
+		];
 	}
 
 	private static Vector3[] HOUSE_COLORS = new Vector3[] {
@@ -183,39 +185,50 @@ public sealed class ProcMesh : Component
 		return m;
 	}
 
-	private Mesh BuildTerrain(Span<TerrainVertex> vertices, Span<int> indices) {
-		var verts = new List<Vertex>();
+	protected override void OnStart()
+	{
+		GameTask.RunInThreadAsync(BuildModel);
+		//Generate();
+	}
 
-		Vector3 ground_color = Color.FromRgb(0xFFFFFF);
-
-		for (int i=0;i<vertices.Length-1;i++) {
-			var tangent = Vector3.Forward;
-			verts.Add(new Vertex(vertices[i].Position,vertices[i].Normal,tangent,Vector2.Zero,ground_color));
-		}
-
+	private Mesh BuildMesh() {
 		var m = new Mesh();
-		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
-		m.CreateIndexBuffer(indices.Length,indices);
+		m.CreateVertexBuffer(Vertices.Length,GetVertexLayout(),Vertices.AsSpan());
+		m.CreateIndexBuffer(Indices.Length,Indices);
 		return m;
 	}
 
-	protected override void OnStart()
-	{
-		//var path = new[] {new Vector2(100,0),new Vector2(100,100),new Vector2(0,100),new Vector2(0,0)};
-		Mesh mesh;
-		if (TerrainVertices != null) {
-			mesh = BuildTerrain(TerrainVertices,TerrainIndices);
-		} else if (PathRoad != null) {
-			mesh = BuildRoad(PathRoad);
-		} else {
-			mesh = BuildFromPath(Path,ColorSeed);
+	private void BuildModel() {
+		Mesh mesh = BuildMesh();
+		mesh.Material = Material;
+
+		var builder = Model.Builder.AddMesh(mesh);
+
+		{
+			var collision_verts = new Vector3[Vertices.Length];
+			for (int i=0;i<collision_verts.Length;i++) {
+				collision_verts[i] = Vertices[i].Pos;
+			}
+			builder.AddCollisionMesh(collision_verts,Indices);
 		}
 
-		var model = Model.Builder.AddMesh(mesh).Create();
-		render.Model = model;
+		var model = builder.Create();
+		Render.Model = model;
+		Collider.Model = model;
 	}
-	protected override void OnUpdate()
-	{
 
+	public void SetTerrain(TerrainVertex[] vertices, int[] indices, Material material) {
+		Vertices = new Vertex[vertices.Length];
+		Indices = indices;
+		Material = material;
+
+		for (int i=0;i<vertices.Length;i++) {
+			var pos = vertices[i].Position;
+			var normal = vertices[i].Normal;
+			var tangent = normal.Cross(Vector3.Forward);
+			Vector2 tc = pos / 1000;
+			tc.y = -tc.y;
+			Vertices[i] = new Vertex(pos,normal,tangent,tc,Vector2.Zero);
+		}
 	}
 }

@@ -3,6 +3,9 @@ using System;
 
 public sealed class Spectator : Component
 {
+	[Property]
+	GameObject Projectile;
+
 	const float MOVE_SPEED = 2000;
 	const float CAM_SENSITIVITY = 1;
 
@@ -23,5 +26,11 @@ public sealed class Spectator : Component
 
 		WorldPosition += MOVE_SPEED * (camera_rot * move_wish) * Time.Delta;
 		//Log.Info("~ "+move_wish);
+
+		if (Input.Pressed("attack1")) {
+			var p = Projectile.Clone();
+			p.WorldPosition = WorldPosition;
+			Log.Info("waah");
+		}
 	}
 }
