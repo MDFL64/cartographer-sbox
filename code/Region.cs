@@ -3,7 +3,8 @@ using System;
 
 public class BuildingInfo {
 	public Vector2 BasePos;
-	public float BaseLow;
+	public float GroundLow;
+	public float GroundHigh;
 	public float Height;
 	public Vector2[] Nodes;
 }
@@ -26,7 +27,7 @@ public sealed class Region : Component
 	int TileViewDistance = 2;
 
 	const float SCALE_XY = 1;
-	const float SCALE_Z = 1;
+	const float SCALE_Z = 2;
 
 	const int TILE_COUNT = 20;
 
@@ -37,11 +38,13 @@ public sealed class Region : Component
 	GameObject Spectator;
 	[Property]
 	public GameObject MeshPrefab;
-	
+
 	[Property]
 	public Material MatGround;
+	[Property]
+	public Material MatBuilding;
 
-	public static float ScaleMetersXY(float meters) {
+	public static float ScaleDistance(float meters) {
 		return meters * SCALE_XY * 39.3701f;
 	}
 
@@ -49,18 +52,25 @@ public sealed class Region : Component
 		return meters * SCALE_Z * 39.3701f;
 	}
 
+	public static Vector3 ScalePos(Vector3 pos) {
+		pos.x *= SCALE_XY * 39.3701f;
+		pos.y *= -SCALE_XY * 39.3701f;
+		pos.z *= SCALE_Z * 39.3701f;
+		return pos;
+	}
+
 	protected override void OnStart()
 	{
 		Vector2 SpawnPoint = new Vector2(7655.545f,4544.221f - 10012);
-		Spectator.WorldPosition = SpawnPoint * ScaleMetersXY(1);
+		Spectator.WorldPosition = SpawnPoint * ScaleDistance(1);
 		FetchOSM();
 	}
 
 	private async void FetchOSM() {
-		var empty = new System.Net.Http.ByteArrayContent(new byte[0]);
+		var empty = new System.Net.Http.ByteArrayContent([]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/osm", "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/map", "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
@@ -74,7 +84,8 @@ public sealed class Region : Component
 				// building
 				var base_x = reader.ReadSingle();
 				var base_y = reader.ReadSingle();
-				var elevation = reader.ReadSingle();
+				var ground_low = reader.ReadSingle();
+				var ground_high = reader.ReadSingle();
 				var height = reader.ReadSingle();
 				var base_pos = new Vector2(base_x,base_y);
 				var nodes = new Vector2[reader.ReadUInt16()];
@@ -86,7 +97,8 @@ public sealed class Region : Component
 				}
 				var building = new BuildingInfo() {
 					BasePos = base_pos,
-					BaseLow = elevation,
+					GroundLow = ground_low,
+					GroundHigh = ground_high,
 					Height = height,
 					Nodes = nodes
 				};
@@ -117,53 +129,7 @@ public sealed class Region : Component
 		Buildings = building_list;
 	}
 
-	private void DebugPos(Vector2 pos) {
-		float local_x = ScaleMetersXY(pos.x);
-		float local_y = ScaleMetersXY(pos.y);
-
-		Gizmo.Draw.Line(new Vector3(local_x,local_y,-2000), new Vector3(local_x,local_y,0) );
-	}
-
-	public void SpawnBuilding(BuildingInfo info, GameObject parent, int index) {
-		//var xform = new Transform(info.BasePos * ScaleMetersXY(1));
-		/*var building = BuildingPrefab.Clone();
-		building.Parent = parent;
-
-		float z_pos = ScaleElevation(info.BaseLow - ElevationTile.BASE_ELEVATION);
-		var pos = new Vector3(info.BasePos * ScaleMetersXY(1),z_pos);
-		pos.y *= -1;
-
-		building.WorldPosition = new Vector3(pos);
-		var mesh = building.GetComponent<ProcMesh>();
-		var points = new Vector2[info.Nodes.Length];
-		for (int i=0;i<points.Length;i++) {
-			points[i] = info.Nodes[i] * ScaleMetersXY(1);
-		}
-		mesh.Path = points;
-		mesh.ColorSeed = index;
-		// BUILDING height is scaled using xy -- todo rename this
-		mesh.Top = ScaleMetersXY(info.Height);*/
-	}
-
-	public void SpawnRoad(RoadInfo info, GameObject parent) {
-		//var xform = new Transform(info.BasePos * ScaleMetersXY(1));
-		/*var building = BuildingPrefab.Clone();
-		building.Parent = parent;
-
-		float z_pos = ScaleElevation(info.BasePos.z - ElevationTile.BASE_ELEVATION);
-		var pos = new Vector3(info.BasePos * ScaleMetersXY(1),z_pos);
-		pos.y *= -1;
-
-		building.WorldPosition = new Vector3(pos);
-		var mesh = building.GetComponent<ProcMesh>();
-		var points = new Vector3[info.Nodes.Length];
-		for (int i=0;i<points.Length;i++) {
-			points[i] = info.Nodes[i] * ScaleMetersXY(1);
-		}
-		mesh.PathRoad = points;*/
-	}
-
-	public int MapTileFromMeters(Vector2 pos) {
+	public static int MapTileFromMeters(Vector2 pos) {
 		float tile_size = 512;
 		int x = (int)Math.Floor(pos.x / tile_size);
 		int y = (int)Math.Floor(pos.y / tile_size);
@@ -171,7 +137,7 @@ public sealed class Region : Component
 	}
 
 	protected override void OnUpdate() {
-		float tile_size = ScaleMetersXY(512);
+		float tile_size = ScaleDistance(512);
 
 		var cam_pos = Scene.Camera.WorldPosition;
 
@@ -187,7 +153,7 @@ public sealed class Region : Component
 		}
 	}
 
-	private int MapTile(int x, int y) {
+	private static int MapTile(int x, int y) {
 		if (x < 0 || x >= TILE_COUNT || y < 0 || y >= TILE_COUNT) {
 			return -1;
 		}

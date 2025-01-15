@@ -3,4 +3,5 @@ Open Street Map
 USGS 3DEP 1 Meter
 
 TEXTURES:
-https://opengameart.org/content/synthetic-grass-texture-pack
+https://opengameart.org/content/free-urban-textures-buildings-apartments-shop-fronts
+https://renderman.pixar.com/pixar-one-twenty-eight

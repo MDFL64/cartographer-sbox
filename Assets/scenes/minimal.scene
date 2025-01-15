@@ -228,7 +228,8 @@
         {
           "__type": "Region",
           "__guid": "f982ec35-587b-4769-8a89-b03d2db46a08",
-          "MatGround": "dev/helper/testgrid.vmat",
+          "MatBuilding": "siding.vmat",
+          "MatGround": "ground.vmat",
           "MeshPrefab": {
             "_type": "gameobject",
             "prefab": "mesh.prefab"

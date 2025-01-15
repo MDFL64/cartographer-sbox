@@ -30,7 +30,6 @@ public sealed class Spectator : Component
 		if (Input.Pressed("attack1")) {
 			var p = Projectile.Clone();
 			p.WorldPosition = WorldPosition;
-			Log.Info("waah");
 		}
 	}
 }

@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using Sandbox;
 
 public sealed class ProcMesh : Component
@@ -18,9 +19,7 @@ public sealed class ProcMesh : Component
 	public int[] Indices;
 	public Material Material;
 
-	public float Bottom = -1000;
-	public float Top = 200;
-	public int ColorSeed = 0;
+	public bool DisablePhysics = false;
 
 	[StructLayout( LayoutKind.Sequential )]
 	public struct Vertex {
@@ -94,29 +93,105 @@ public sealed class ProcMesh : Component
 		Color32.FromRgb(0xcfa65f).ToColor(),
 	};
 
-	private Mesh BuildFromPath(Span<Vector2> path, int color_seed) {
+	const bool USE_THREADED_MESH_GEN = true;
+
+	protected override void OnStart()
+	{
+		if (USE_THREADED_MESH_GEN) {
+			GameTask.RunInThreadAsync(BuildModel);
+		} else {
+			BuildModel();
+		}
+		//Generate();
+	}
+
+	private Mesh BuildMesh() {
+		var m = new Mesh();
+		m.CreateVertexBuffer(Vertices.Length,GetVertexLayout(),Vertices.AsSpan());
+		m.CreateIndexBuffer(Indices.Length,Indices);
+		return m;
+	}
+
+	private static Object BuildMutex = new Object();
+
+	private void BuildModel() {
+		Mesh mesh = BuildMesh();
+		mesh.Material = Material;
+
+		// this can be called from a thread; using the static builder is a BAD idea
+		// TODO pool builders?
+		var builder = new ModelBuilder().AddMesh(mesh);
+
+		if (!DisablePhysics) {
+			var collision_verts = new Vector3[Vertices.Length];
+			for (int i=0;i<collision_verts.Length;i++) {
+				collision_verts[i] = Vertices[i].Pos;
+			}
+			builder.AddCollisionMesh(collision_verts,Indices);
+		}
+
+		//Log.Info("building"); 
+
+		try {
+			lock (BuildMutex) {
+				var model = builder.Create();
+				Render.Model = model;
+				Collider.Model = model;
+			}
+		} catch (Exception e) {
+			Log.Info("fail "+e);
+		}
+	}
+
+	public void SetTerrain(TerrainVertex[] vertices, int[] indices, Material material) {
+		Vertices = new Vertex[vertices.Length];
+		Indices = indices;
+		Material = material;
+
+		for (int i=0;i<vertices.Length;i++) {
+			var pos = vertices[i].Position;
+			var normal = vertices[i].Normal;
+			var tangent = normal.Cross(Vector3.Forward);
+			Vector2 tc = pos / 100;
+			tc.y = -tc.y;
+			Vertices[i] = new Vertex(pos,normal,tangent,tc,Vector2.Zero);
+		}
+	}
+
+	public void SetBuilding(BuildingInfo info, int seed, Material material) {
+		Material = material;
+
 		var verts = new List<Vertex>();
 		var indices = new List<int>();
 
-		var rng = new Random(color_seed);
+		var rng = new Random(seed);
 
 		Vector3 side_color = rng.FromArray(HOUSE_COLORS);
 		Vector3 roof_color = rng.FromArray(ROOF_COLORS);
 
+		float scale = Region.ScaleDistance(1);
+
+		float top = Region.ScaleDistance(info.Height);
+		float bottom = -Region.ScaleElevation(info.GroundHigh - info.GroundLow);
+
 		// sides
+		var path = info.Nodes;
 		for (int i=0;i<path.Length;i++) {
 			int index_1 = verts.Count;
-			var v1 = path[i];
-			var v2 = path[(i + 1) % path.Length];
+			var v1 = Region.ScalePos(path[i]);
+			var v2 = Region.ScalePos(path[(i + 1) % path.Length]);
 
 			var tangent = (v2-v1).Normal;
 			var normal = new Vector2(tangent.y,-tangent.x);
 
-			verts.Add(new Vertex(new Vector3(v1,Bottom),normal,tangent,Vector2.Zero,side_color));
-			verts.Add(new Vertex(new Vector3(v2,Bottom),normal,tangent,Vector2.Zero,side_color));
+			float width = (v2-v1).Length/100;
+			float height = (top - bottom)/100;
 
-			verts.Add(new Vertex(new Vector3(v1,Top),normal,tangent,Vector2.Zero,side_color));
-			verts.Add(new Vertex(new Vector3(v2,Top),normal,tangent,Vector2.Zero,side_color));
+			verts.Add(new Vertex(new Vector3(v1,bottom),normal,tangent,new Vector2(0,0),side_color));
+			verts.Add(new Vertex(new Vector3(v2,bottom),normal,tangent,new Vector2(width,0),side_color));
+
+			verts.Add(new Vertex(new Vector3(v1,top),normal,tangent,new Vector2(0,height),side_color));
+			verts.Add(new Vertex(new Vector3(v2,top),normal,tangent,new Vector2(width,height),side_color));
 
 			indices.Add(index_1 + 3);
 			indices.Add(index_1 + 0);
@@ -129,25 +204,25 @@ public sealed class ProcMesh : Component
 		// top
 		{
 			int index_1 = verts.Count;
-			var top = new Vector3[path.Length];
+			var top_points = new Vector3[path.Length];
 			for (int i=0;i<path.Length;i++) {
-				var v = path[i];
-				top[i] = v;
-				verts.Add(new Vertex(new Vector3(v,Top),Vector3.Up,Vector3.Left,Vector2.Zero,roof_color));
+				var v = Region.ScalePos(path[i]);
+				top_points[i] = v;
+				verts.Add(new Vertex(new Vector3(v,top),Vector3.Up,Vector3.Left,v/100,roof_color));
 			}
-			var new_indices = Mesh.TriangulatePolygon(top);
+			var new_indices = Mesh.TriangulatePolygon(top_points);
 			foreach (var index in new_indices) {
 				indices.Add(index_1 + index);
 			}
 		}
 
-		var m = new Mesh();
-		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
-		m.CreateIndexBuffer(indices.Count,indices);
-		return m;
+		Vertices = verts.ToArray();
+		Indices = indices.ToArray();
+		Material = material;
+		//DisablePhysics = true;
 	}
 
-	private Mesh BuildRoad(Span<Vector3> path) {
+	public void SetRoad(Span<Vector3> path, Material material) {
 		var verts = new List<Vertex>();
 		var indices = new List<int>();
 
@@ -155,13 +230,13 @@ public sealed class ProcMesh : Component
 
 		for (int i=0;i<path.Length-1;i++) {
 			int index_1 = verts.Count;
-			var v1 = path[i];
-			var v2 = path[i+1];
+			var v1 = Region.ScalePos(path[i]);
+			var v2 = Region.ScalePos(path[i+1]);
 
 			var tangent = new Vector2(v2-v1).Normal;
 			var normal = new Vector2(tangent.y,-tangent.x);
-			var offset = new Vector3(normal * Region.ScaleMetersXY(6),0);
-			var offset2 = Vector3.Up * 12;
+			var offset = new Vector3(normal * Region.ScaleDistance(6),0);
+			var offset2 = Vector3.Up * 6;
 			var up = Vector3.Up;
 
 			verts.Add(new Vertex(v1 - offset + offset2,up,tangent,Vector2.Zero,side_color));
@@ -179,56 +254,8 @@ public sealed class ProcMesh : Component
 			indices.Add(index_1 + 3);
 		}
 
-		var m = new Mesh();
-		m.CreateVertexBuffer(verts.Count,GetVertexLayout(),verts);
-		m.CreateIndexBuffer(indices.Count,indices);
-		return m;
-	}
-
-	protected override void OnStart()
-	{
-		GameTask.RunInThreadAsync(BuildModel);
-		//Generate();
-	}
-
-	private Mesh BuildMesh() {
-		var m = new Mesh();
-		m.CreateVertexBuffer(Vertices.Length,GetVertexLayout(),Vertices.AsSpan());
-		m.CreateIndexBuffer(Indices.Length,Indices);
-		return m;
-	}
-
-	private void BuildModel() {
-		Mesh mesh = BuildMesh();
-		mesh.Material = Material;
-
-		var builder = Model.Builder.AddMesh(mesh);
-
-		{
-			var collision_verts = new Vector3[Vertices.Length];
-			for (int i=0;i<collision_verts.Length;i++) {
-				collision_verts[i] = Vertices[i].Pos;
-			}
-			builder.AddCollisionMesh(collision_verts,Indices);
-		}
-
-		var model = builder.Create();
-		Render.Model = model;
-		Collider.Model = model;
-	}
-
-	public void SetTerrain(TerrainVertex[] vertices, int[] indices, Material material) {
-		Vertices = new Vertex[vertices.Length];
-		Indices = indices;
+		Vertices = verts.ToArray();
+		Indices = indices.ToArray();
 		Material = material;
-
-		for (int i=0;i<vertices.Length;i++) {
-			var pos = vertices[i].Position;
-			var normal = vertices[i].Normal;
-			var tangent = normal.Cross(Vector3.Forward);
-			Vector2 tc = pos / 1000;
-			tc.y = -tc.y;
-			Vertices[i] = new Vertex(pos,normal,tangent,tc,Vector2.Zero);
-		}
 	}
 }

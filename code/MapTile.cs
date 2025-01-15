@@ -8,10 +8,10 @@ public sealed class MapTile : Component
 
 	private bool HasBuildings = false;
 
-	public ProcMesh SpawnMesh(string name) {
+	public ProcMesh SpawnMesh(string name, Vector3 pos) {
 		var obj = ParentRegion.MeshPrefab.Clone();
 		obj.Parent = GameObject;
-		obj.LocalPosition = Vector3.Zero;
+		obj.LocalPosition = pos;
 		obj.Name = name;
 
 		var mesh = obj.GetComponent<ProcMesh>();
@@ -19,7 +19,12 @@ public sealed class MapTile : Component
 	}
 
 	protected override void OnStart()
-	{
+	{	
+		float tile_size = Region.ScaleDistance(512);
+		float x_pos = tile_size * (TileNumber % 20);
+		float y_pos = -tile_size * MathX.Floor(TileNumber / 20);
+		LocalPosition = new Vector3(x_pos,y_pos,0);
+		
 		FetchTerrain();
 	}
 
@@ -31,15 +36,20 @@ public sealed class MapTile : Component
 			int seed = 0;
 			foreach (var b in buildings) {
 				seed++;
-				if (TileNumber == ParentRegion.MapTileFromMeters(b.BasePos)) {
-					ParentRegion.SpawnBuilding(b,this.GameObject,seed);
+				if (TileNumber == Region.MapTileFromMeters(b.BasePos)) {
+					var pos = new Vector3(b.BasePos.x % 512, b.BasePos.y % 512, b.GroundHigh - BASE_ELEVATION);
+					var building = SpawnMesh("Building", Region.ScalePos(pos));
+					building.SetBuilding(b, seed, ParentRegion.MatBuilding);
 				}
 			}
 			int rc = 0;
 			foreach (var r in roads) {
-				if (TileNumber == ParentRegion.MapTileFromMeters(r.BasePos)) {
+				if (TileNumber == Region.MapTileFromMeters(r.BasePos)) {
+					var pos = new Vector3(r.BasePos.x % 512, r.BasePos.y % 512, r.BasePos.z - BASE_ELEVATION);
+					var road = SpawnMesh("Road", Region.ScalePos(pos));
+					road.SetRoad(r.Nodes ,ParentRegion.MatBuilding);
 					rc++;
-					ParentRegion.SpawnRoad(r,this.GameObject);
+					//ParentRegion.SpawnRoad(r,this.GameObject);
 				}
 			}
 			Log.Info("roads = "+rc);
@@ -56,16 +66,10 @@ public sealed class MapTile : Component
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
 
-		var elev_base = reader.ReadSingle();
+		var elev_base = reader.ReadSingle() - BASE_ELEVATION;
 		var elev_range = reader.ReadSingle();
 
-		float tile_size = Region.ScaleMetersXY(512);
-		{
-			float z_pos = Region.ScaleElevation(elev_base - BASE_ELEVATION);
-			float x_pos = tile_size * (TileNumber % 20);
-			float y_pos = -tile_size * MathX.Floor(TileNumber / 20);
-			LocalPosition = new Vector3(x_pos,y_pos,z_pos);
-		}
+		float tile_size = Region.ScaleDistance(512);
 
 		var vertex_count = reader.ReadUInt16();
 		var vertices = new TerrainVertex[vertex_count];
@@ -90,7 +94,7 @@ public sealed class MapTile : Component
 			indices[i] = reader.ReadUInt16();
 		}
 
-		var mesh = SpawnMesh("Terrain");
+		var mesh = SpawnMesh("Terrain",Vector3.Up * Region.ScaleElevation(elev_base));
 		mesh.SetTerrain(vertices,indices,ParentRegion.MatGround);
 	}
 }
