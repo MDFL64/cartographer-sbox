@@ -1,20 +1,24 @@
 using Sandbox;
 using System;
 
-public sealed class Spectator : Component
+public sealed class Player : Component
 {
-	[Property]
-	GameObject Projectile;
+	[RequireComponent]
+    public CharacterController Controller { get; set; }
 
-	const float MOVE_SPEED = 2000;
+    //[RequireComponent]
+    //public CitizenAnimationHelper AnimationHelper { get; set; }
+    //public SkinnedModelRenderer Renderer { get; set; }
+
+	/*const float MOVE_SPEED = 2000;
 	const float CAM_SENSITIVITY = 1;
 
 	float CameraPitch = 0;
-	float CameraYaw = 0;
+	float CameraYaw = 0;*/
 
 	protected override void OnUpdate()
 	{
-		var move_wish = Input.AnalogMove;
+		/*var move_wish = Input.AnalogMove;
 
 		CameraYaw += Input.AnalogLook.yaw * CAM_SENSITIVITY;
 		CameraPitch += Input.AnalogLook.pitch * CAM_SENSITIVITY;
@@ -30,6 +34,7 @@ public sealed class Spectator : Component
 		if (Input.Pressed("attack1")) {
 			var p = Projectile.Clone();
 			p.WorldPosition = WorldPosition;
-		}
+		}*/
+		//Controller.
 	}
 }

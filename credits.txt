@@ -1,6 +1,24 @@
-DATA:
-Open Street Map
-USGS 3DEP 1 Meter
+Welcome to Paradise.
+
+Real world maps in S&Box.
+
+*This is still a rough prototype. Roads in particular are pretty messy, and the performance is bad.*
+
+Attributions
+
+OpenStreetMap was used to construct buildings, roads, and other features. The copyright for this data is owned by OpenStreetMap contributors. OpenStreetmap is available under the Open Database License.
+https://www.openstreetmap.org/copyright
+
+OpenStreetMap and other map data is transformed using the following program. This library uses several other open source libraries.
+https://github.com/MDFL64/cartographer-cli
+
+Elevation data is provided by the United States Geological Survey. This data is availabe free for charge and without use restrictions.
+https://www.usgs.gov/3d-elevation-program/
+
+Textures were created using Material Maker
+https://www.materialmaker.org/
+
+------------
 
 TEXTURES:
 https://opengameart.org/content/free-urban-textures-buildings-apartments-shop-fronts

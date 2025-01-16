@@ -222,36 +222,62 @@ public sealed class ProcMesh : Component
 		//DisablePhysics = true;
 	}
 
-	public void SetRoad(Span<Vector3> path, Material material) {
+	public void SetRoad(Span<RoadNode> path, Material material) {
 		var verts = new List<Vertex>();
 		var indices = new List<int>();
 
-		Vector3 side_color = Color.FromRgb(0x333333);
+		Vector3 road_color = Color.FromRgb(0xFFFFFF);
 
-		for (int i=0;i<path.Length-1;i++) {
+		float v_coord = 0;
+		Vector3 last_pos = default;
+
+		var vertical_offset = Vector3.Up * 12;
+
+		// front end cap
+		/*{
 			int index_1 = verts.Count;
-			var v1 = Region.ScalePos(path[i]);
-			var v2 = Region.ScalePos(path[i+1]);
+			var node1 = path[0];
+			var tangent = Vector3.Forward;
 
-			var tangent = new Vector2(v2-v1).Normal;
-			var normal = new Vector2(tangent.y,-tangent.x);
-			var offset = new Vector3(normal * Region.ScaleDistance(6),0);
-			var offset2 = Vector3.Up * 6;
-			var up = Vector3.Up;
+			verts.Add(new Vertex(Region.ScalePos(node1.Left) - vertical_offset,node1.Normal,tangent,new Vector2(0,0),road_color));
+			verts.Add(new Vertex(Region.ScalePos(node1.Left) + vertical_offset,node1.Normal,tangent,new Vector2(0,0.1f),road_color));
+			verts.Add(new Vertex(Region.ScalePos(node1.Right) - vertical_offset,node1.Normal,tangent,new Vector2(1,0),road_color));
+			verts.Add(new Vertex(Region.ScalePos(node1.Right) + vertical_offset,node1.Normal,tangent,new Vector2(1,0.1f),road_color));
 
-			verts.Add(new Vertex(v1 - offset + offset2,up,tangent,Vector2.Zero,side_color));
-			verts.Add(new Vertex(v1 + offset + offset2,up,tangent,Vector2.Zero,side_color));
-
-			verts.Add(new Vertex(v2 - offset + offset2,up,tangent,Vector2.Zero,side_color));
-			verts.Add(new Vertex(v2 + offset + offset2,up,tangent,Vector2.Zero,side_color));
-
-			indices.Add(index_1 + 3);
 			indices.Add(index_1 + 0);
+			indices.Add(index_1 + 2);
 			indices.Add(index_1 + 1);
 
 			indices.Add(index_1 + 2);
-			indices.Add(index_1 + 0);
 			indices.Add(index_1 + 3);
+			indices.Add(index_1 + 1);
+		}*/
+
+		for (int i=0;i<path.Length;i++) {
+			int index_1 = verts.Count-2;
+			int index_2 = verts.Count;
+			var node1 = path[i];
+			//var node2 = path[i+1];
+
+			var tangent = Vector3.Forward; // not correct
+
+			if (i != 0) {
+				v_coord += node1.Left.Distance(last_pos) / 10;
+			}
+			last_pos = node1.Left;
+
+			verts.Add(new Vertex(Region.ScalePos(node1.Left) + vertical_offset,node1.Normal,tangent,new Vector2(0,v_coord),road_color));
+			verts.Add(new Vertex(Region.ScalePos(node1.Right) + vertical_offset,node1.Normal,tangent,new Vector2(1,v_coord),road_color));
+
+			if (i != 0) {
+				indices.Add(index_2 + 1);
+				indices.Add(index_1 + 0);
+				indices.Add(index_1 + 1);
+
+				indices.Add(index_2 + 0);
+				indices.Add(index_1 + 0);
+				indices.Add(index_2 + 1);
+			}
 		}
 
 		Vertices = verts.ToArray();

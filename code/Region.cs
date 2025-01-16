@@ -11,7 +11,13 @@ public class BuildingInfo {
 
 public class RoadInfo {
 	public Vector3 BasePos;
-	public Vector3[] Nodes;
+	public RoadNode[] Nodes;
+}
+
+public struct RoadNode {
+	public Vector3 Left;
+	public Vector3 Right;
+	public Vector3 Normal;
 }
 
 public struct TerrainVertex {
@@ -21,6 +27,8 @@ public struct TerrainVertex {
 
 public sealed class Region : Component
 {
+	public string HOST = "cart.tmp.bz"; //"localhost:8080";
+
 	int CurrentX = Int32.MaxValue;
 	int CurrentY = Int32.MaxValue;
 
@@ -35,6 +43,9 @@ public sealed class Region : Component
 	public List<RoadInfo> Roads;
 
 	[Property]
+	public string RegionName;
+
+	[Property]
 	GameObject Spectator;
 	[Property]
 	public GameObject MeshPrefab;
@@ -43,6 +54,8 @@ public sealed class Region : Component
 	public Material MatGround;
 	[Property]
 	public Material MatBuilding;
+	[Property]
+	public Material MatRoad;
 
 	public static float ScaleDistance(float meters) {
 		return meters * SCALE_XY * 39.3701f;
@@ -61,8 +74,8 @@ public sealed class Region : Component
 
 	protected override void OnStart()
 	{
-		Vector2 SpawnPoint = new Vector2(7655.545f,4544.221f - 10012);
-		Spectator.WorldPosition = SpawnPoint * ScaleDistance(1);
+		var spawn_point = new Vector3(160173.8f,-104372.9f,11884.41f);
+		Spectator.WorldPosition = spawn_point;// * ScaleDistance(1);
 		FetchOSM();
 	}
 
@@ -70,7 +83,7 @@ public sealed class Region : Component
 		var empty = new System.Net.Http.ByteArrayContent([]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/map", "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://"+HOST+"/"+RegionName+"/map", "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
@@ -109,13 +122,28 @@ public sealed class Region : Component
 				var base_y = reader.ReadSingle();
 				var base_z = reader.ReadSingle();
 				var base_pos = new Vector3(base_x,base_y,base_z);
-				var nodes = new Vector3[reader.ReadUInt16()];
+				var nodes = new RoadNode[reader.ReadUInt16()];
 				for (int i=0;i<nodes.Length;i++) {
-					var x = reader.ReadSingle();
-					var y = reader.ReadSingle();
-					var z = reader.ReadSingle();
-					var pos = new Vector3(x,y,z);
-					nodes[i] = pos;
+					RoadNode node;
+					{
+						var x = reader.ReadSingle();
+						var y = reader.ReadSingle();
+						var z = reader.ReadSingle();
+						node.Left = new Vector3(x,y,z);
+					}
+					{
+						var x = reader.ReadSingle();
+						var y = reader.ReadSingle();
+						var z = reader.ReadSingle();
+						node.Right = new Vector3(x,y,z);
+					}
+					{
+						var x = reader.ReadSingle();
+						var y = reader.ReadSingle();
+						var z = reader.ReadSingle();
+						node.Normal = new Vector3(x,y,z);
+					}
+					nodes[i] = node;
 				}
 				var road = new RoadInfo() {
 					BasePos = base_pos,
@@ -183,7 +211,7 @@ public sealed class Region : Component
 		}
 
 		foreach (var id in wanted_ids) {
-			Log.Info("spawn "+id);
+			//Log.Info("spawn "+id);
 			AddTile(id);
 		}
 	}

@@ -1,6 +1,6 @@
 public sealed class MapTile : Component
 {	
-	public const float BASE_ELEVATION = 1450;
+	public const float BASE_ELEVATION = 600;
 	//const float REGION_SIZE = 10012;
 
 	public int TileNumber = 0;
@@ -42,17 +42,13 @@ public sealed class MapTile : Component
 					building.SetBuilding(b, seed, ParentRegion.MatBuilding);
 				}
 			}
-			int rc = 0;
 			foreach (var r in roads) {
 				if (TileNumber == Region.MapTileFromMeters(r.BasePos)) {
 					var pos = new Vector3(r.BasePos.x % 512, r.BasePos.y % 512, r.BasePos.z - BASE_ELEVATION);
 					var road = SpawnMesh("Road", Region.ScalePos(pos));
-					road.SetRoad(r.Nodes ,ParentRegion.MatBuilding);
-					rc++;
-					//ParentRegion.SpawnRoad(r,this.GameObject);
+					road.SetRoad(r.Nodes ,ParentRegion.MatRoad);
 				}
 			}
-			Log.Info("roads = "+rc);
 			HasBuildings = true;
 		}
 	}
@@ -61,7 +57,7 @@ public sealed class MapTile : Component
 		var empty = new System.Net.Http.ByteArrayContent(new byte[0]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://localhost:8080/donkey_west/tile"+TileNumber, "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://"+ParentRegion.HOST+"/"+ParentRegion.RegionName+"/tile"+TileNumber, "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
 		var reader = new System.IO.BinaryReader(stream);
