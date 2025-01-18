@@ -1,7 +1,7 @@
 {
   "Title": "Cartographer",
   "Type": "game",
-  "Org": "local",
+  "Org": "sausagemangood",
   "Ident": "cartographer",
   "Schema": 1,
   "IncludeSourceFiles": false,

@@ -47,8 +47,6 @@ public sealed class Region : Component
 
 	[Property]
 	GameObject Spectator;
-	[Property]
-	public GameObject MeshPrefab;
 
 	[Property]
 	public Material MatGround;

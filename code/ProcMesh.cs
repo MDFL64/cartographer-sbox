@@ -1,16 +1,17 @@
 using System;
 using System.Diagnostics;
 using System.Numerics;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Sandbox;
 
 public sealed class ProcMesh : Component
 {
-	[RequireComponent]
+	/*[RequireComponent]
 	ModelRenderer Render {get;set;}
 	[RequireComponent]
-	ModelCollider Collider {get;set;}
+	ModelCollider Collider {get;set;}*/
 
 	//public Vector2[] Path;
 	//public Vector3[] PathRoad;
@@ -19,7 +20,7 @@ public sealed class ProcMesh : Component
 	public int[] Indices;
 	public Material Material;
 
-	public bool DisablePhysics = false;
+	public bool DisablePhysics = true;
 
 	[StructLayout( LayoutKind.Sequential )]
 	public struct Vertex {
@@ -93,16 +94,16 @@ public sealed class ProcMesh : Component
 		Color32.FromRgb(0xcfa65f).ToColor(),
 	};
 
-	const bool USE_THREADED_MESH_GEN = true;
+	const bool USE_THREADED_MESH_GEN = false;
 
 	protected override void OnStart()
 	{
-		if (USE_THREADED_MESH_GEN) {
+		//Log.Info("pm");
+		/*if (USE_THREADED_MESH_GEN) {
 			GameTask.RunInThreadAsync(BuildModel);
 		} else {
-			BuildModel();
-		}
-		//Generate();
+		}*/
+		BuildModel();
 	}
 
 	private Mesh BuildMesh() {
@@ -112,7 +113,7 @@ public sealed class ProcMesh : Component
 		return m;
 	}
 
-	private static Object BuildMutex = new Object();
+	//private static Object BuildMutex = new Object();
 
 	private void BuildModel() {
 		Mesh mesh = BuildMesh();
@@ -133,11 +134,28 @@ public sealed class ProcMesh : Component
 		//Log.Info("building"); 
 
 		try {
-			lock (BuildMutex) {
-				var model = builder.Create();
-				Render.Model = model;
-				Collider.Model = model;
+			//lock (BuildMutex) {
+			//Log.Info("enter");
+			var model = builder.Create();
+			var render = AddComponent<ModelRenderer>();
+			render.Model = model;
+
+			//Log.Info("pre-create");
+			var collider = AddComponent<ProcCollider>(false);
+			//Log.Info("post-create");
+			collider.Indices = Indices;
+			{
+				var collision_verts = new Vector3[Vertices.Length];
+				for (int i=0;i<collision_verts.Length;i++) {
+					collision_verts[i] = Vertices[i].Pos;
+				}
+				collider.Vertices = collision_verts;
 			}
+			var s = Stopwatch.StartNew();
+			collider.Enabled = true;
+			/*if (GameObject.Name == "Terrain") {
+				Log.Info("ee "+Time.Now+" "+s.ElapsedMilliseconds);
+			}*/
 		} catch (Exception e) {
 			Log.Info("fail "+e);
 		}
@@ -262,7 +280,7 @@ public sealed class ProcMesh : Component
 			var tangent = Vector3.Forward; // not correct
 
 			if (i != 0) {
-				v_coord += node1.Left.Distance(last_pos) / 10;
+				v_coord += node1.Left.Distance(last_pos) / 100;
 			}
 			last_pos = node1.Left;
 

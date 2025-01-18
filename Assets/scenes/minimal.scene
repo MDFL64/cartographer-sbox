@@ -111,10 +111,6 @@
           "MatBuilding": "siding.vmat",
           "MatGround": "ground.vmat",
           "MatRoad": "road.vmat",
-          "MeshPrefab": {
-            "_type": "gameobject",
-            "prefab": "mesh.prefab"
-          },
           "RegionName": "paradise",
           "Spectator": {
             "_type": "gameobject",
