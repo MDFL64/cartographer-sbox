@@ -161,7 +161,7 @@ public sealed class ProcMesh : Component
 		}
 	}
 
-	public void SetTerrain(TerrainVertex[] vertices, int[] indices, Material material) {
+	public void SetTerrain(TerrainVertex[] vertices, int[] indices, Material material, Color color) {
 		Vertices = new Vertex[vertices.Length];
 		Indices = indices;
 		Material = material;
@@ -172,7 +172,7 @@ public sealed class ProcMesh : Component
 			var tangent = normal.Cross(Vector3.Forward);
 			Vector2 tc = pos / 100;
 			tc.y = -tc.y;
-			Vertices[i] = new Vertex(pos,normal,tangent,tc,Vector2.Zero);
+			Vertices[i] = new Vertex(pos,normal,tangent,tc,color);
 		}
 	}
 
@@ -240,7 +240,7 @@ public sealed class ProcMesh : Component
 		//DisablePhysics = true;
 	}
 
-	public void SetRoad(Span<RoadNode> path, Material material) {
+	public void SetRoad(RoadInfo road, Material mat_road, Material mat_sidewalk) {
 		var verts = new List<Vertex>();
 		var indices = new List<int>();
 
@@ -271,21 +271,37 @@ public sealed class ProcMesh : Component
 			indices.Add(index_1 + 1);
 		}*/
 
-		for (int i=0;i<path.Length;i++) {
+		bool is_sidewalk = road.Kind == RoadKind.Sidewalk;
+
+		for (int i=0;i<road.Nodes.Length;i++) {
 			int index_1 = verts.Count-2;
 			int index_2 = verts.Count;
-			var node1 = path[i];
+			var node1 = road.Nodes[i];
 			//var node2 = path[i+1];
 
 			var tangent = Vector3.Forward; // not correct
 
 			if (i != 0) {
-				v_coord += node1.Left.Distance(last_pos) / 100;
+				float texture_len = is_sidewalk ? 10 : 50;
+				v_coord += node1.Left.Distance(last_pos) / texture_len;
 			}
 			last_pos = node1.Left;
 
-			verts.Add(new Vertex(Region.ScalePos(node1.Left) + vertical_offset,node1.Normal,tangent,new Vector2(0,v_coord),road_color));
-			verts.Add(new Vertex(Region.ScalePos(node1.Right) + vertical_offset,node1.Normal,tangent,new Vector2(1,v_coord),road_color));
+			float lane_w_half = 0.05f * road.LaneCount;
+			if (is_sidewalk) {
+				lane_w_half = 0.11f;
+			}
+
+			float u_min = 0.5f - lane_w_half;
+			float u_max = 0.5f + lane_w_half;
+
+			if (road.Kind == RoadKind.OneWay) {
+				u_min = 0.5f;
+				u_max = 0.5f + lane_w_half * 2;
+			}
+
+			verts.Add(new Vertex(Region.ScalePos(node1.Left) + vertical_offset,node1.Normal,tangent,new Vector2(u_min,v_coord),road_color));
+			verts.Add(new Vertex(Region.ScalePos(node1.Right) + vertical_offset,node1.Normal,tangent,new Vector2(u_max,v_coord),road_color));
 
 			if (i != 0) {
 				indices.Add(index_2 + 1);
@@ -300,6 +316,6 @@ public sealed class ProcMesh : Component
 
 		Vertices = verts.ToArray();
 		Indices = indices.ToArray();
-		Material = material;
+		Material = is_sidewalk ? mat_sidewalk : mat_road;
 	}
 }

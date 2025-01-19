@@ -30,7 +30,8 @@
       "__guid": "bfc59c12-1ed2-4f91-8956-a95a315eac3c",
       "Flags": 0,
       "Name": "Sun",
-      "Rotation": "-0.0729315,0.4822396,0.1305433,0.8631827",
+      "Position": "-63.23919,-19.35895,106.3404",
+      "Rotation": "0.07372937,0.2249103,-0.3026549,0.9232439",
       "Tags": "light_directional,light",
       "Enabled": true,
       "Components": [
@@ -111,6 +112,7 @@
           "MatBuilding": "siding.vmat",
           "MatGround": "ground.vmat",
           "MatRoad": "road.vmat",
+          "MatSidewalk": "sidewalk.vmat",
           "RegionName": "paradise",
           "Spectator": {
             "_type": "gameobject",
@@ -354,6 +356,25 @@
                   "OnComponentStart": null,
                   "OnComponentUpdate": null,
                   "Scale": 0.2
+                },
+                {
+                  "__type": "Sandbox.CubemapFog",
+                  "__guid": "ac22ed7a-db7b-4553-96b7-f117ee5c183e",
+                  "Blur": 0.5,
+                  "EndDistance": 39000,
+                  "FalloffExponent": 1,
+                  "HeightExponent": 2,
+                  "HeightStart": 2000,
+                  "HeightWidth": 0,
+                  "OnComponentDestroy": null,
+                  "OnComponentDisabled": null,
+                  "OnComponentEnabled": null,
+                  "OnComponentFixedUpdate": null,
+                  "OnComponentStart": null,
+                  "OnComponentUpdate": null,
+                  "Sky": null,
+                  "StartDistance": 30000,
+                  "Tint": "1,1,1,1"
                 }
               ]
             },

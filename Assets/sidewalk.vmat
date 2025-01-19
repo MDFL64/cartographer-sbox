@@ -2,14 +2,17 @@
 
 Layer0
 {
-	shader "shaders/vertex_color.shader"
+	shader "shaders/complex.shader"
 
 	//---- Ambient Occlusion ----
+	g_flAmbientOcclusionDirectDiffuse "0.000"
+	g_flAmbientOcclusionDirectSpecular "0.000"
 	TextureAmbientOcclusion "materials/default/default_ao.tga"
 
 	//---- Color ----
-	g_vColorTint "[1.000000 1.000000 1.000000 1.000000]"
-	TextureColor "textures/ground.png"
+	g_flModelTintAmount "1.000"
+	g_vColorTint "[1.000000 1.000000 1.000000 0.000000]"
+	TextureColor "textures/sidewalk.png"
 
 	//---- Fade ----
 	g_flFadeExponent "1.000"
@@ -20,10 +23,17 @@ Layer0
 	//---- Metalness ----
 	g_flMetalness "0.000"
 
+	//---- Normal ----
+	TextureNormal "materials/default/default_normal.tga"
+
+	//---- Roughness ----
+	g_flRoughnessScaleFactor "1.000"
+	TextureRoughness "materials/default/default_rough.tga"
+
 	//---- Texture Coordinates ----
 	g_nScaleTexCoordUByModelScaleAxis "0"
 	g_nScaleTexCoordVByModelScaleAxis "0"
 	g_vTexCoordOffset "[0.000 0.000]"
-	g_vTexCoordScale "[0.050 0.050]"
+	g_vTexCoordScale "[1.000 1.000]"
 	g_vTexCoordScrollSpeed "[0.000 0.000]"
 }

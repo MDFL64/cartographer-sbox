@@ -1,5 +1,7 @@
 using Sandbox;
 using System;
+using System.IO.Compression;
+using System.Threading.Tasks;
 
 public class BuildingInfo {
 	public Vector2 BasePos;
@@ -12,12 +14,15 @@ public class BuildingInfo {
 public class RoadInfo {
 	public Vector3 BasePos;
 	public RoadNode[] Nodes;
+	public RoadKind Kind;
+	public byte LaneCount;
 }
 
 public struct RoadNode {
 	public Vector3 Left;
 	public Vector3 Right;
 	public Vector3 Normal;
+	public Vector3 Direction;
 }
 
 public struct TerrainVertex {
@@ -25,9 +30,19 @@ public struct TerrainVertex {
 	public Vector3 Normal;
 }
 
+public enum RoadKind : byte {
+	Sidewalk = 0,
+	TwoWay = 1,
+	OneWay = 2
+}
+
 public sealed class Region : Component
 {
+	#if DEBUG
+	public string HOST = "localhost:8080";
+	#else
 	public string HOST = "cart.tmp.bz"; //"localhost:8080";
+	#endif
 
 	int CurrentX = Int32.MaxValue;
 	int CurrentY = Int32.MaxValue;
@@ -54,6 +69,10 @@ public sealed class Region : Component
 	public Material MatBuilding;
 	[Property]
 	public Material MatRoad;
+	[Property]
+	public Material MatSidewalk;
+
+	public Color GroundColor = Color32.FromRgb(0xd1b87b); //Color32.FromRgb(0x6b8c5a);
 
 	public static float ScaleDistance(float meters) {
 		return meters * SCALE_XY * 39.3701f;
@@ -77,20 +96,30 @@ public sealed class Region : Component
 		FetchOSM();
 	}
 
-	private async void FetchOSM() {
+	public async Task<System.IO.BinaryReader> FetchData(string name) {
 		var empty = new System.Net.Http.ByteArrayContent([]);
 		var headers = new Dictionary<string, string>();
 		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://"+HOST+"/"+RegionName+"/map", "GET", empty, headers, token );
+		var bytes = await Http.RequestBytesAsync("http://"+HOST+"/"+RegionName+"/"+name+".bin.gz", "GET", empty, headers, token );
 
 		var stream = new System.IO.MemoryStream(bytes);
-		var reader = new System.IO.BinaryReader(stream);
+		var gzip = new GZipStream(stream,CompressionMode.Decompress,false);
+		return new System.IO.BinaryReader(gzip);
+	}
+
+	private async void FetchOSM() {
+		var reader = await FetchData("map");
 
 		var building_list = new List<BuildingInfo>();
 		var road_list = new List<RoadInfo>();
 
-		while (stream.Position < stream.Length) {
-			byte kind = reader.ReadByte();
+		while (true) {
+			byte kind;
+			try {
+				kind = reader.ReadByte();
+			} catch (Exception) {
+				break;
+			}
 			if (kind == 0) {
 				// building
 				var base_x = reader.ReadSingle();
@@ -120,6 +149,9 @@ public sealed class Region : Component
 				var base_y = reader.ReadSingle();
 				var base_z = reader.ReadSingle();
 				var base_pos = new Vector3(base_x,base_y,base_z);
+				var road_kind = (RoadKind)reader.ReadByte();
+				var lanes = reader.ReadByte();
+
 				var nodes = new RoadNode[reader.ReadUInt16()];
 				for (int i=0;i<nodes.Length;i++) {
 					RoadNode node;
@@ -141,11 +173,19 @@ public sealed class Region : Component
 						var z = reader.ReadSingle();
 						node.Normal = new Vector3(x,y,z);
 					}
+					{
+						var x = reader.ReadSingle();
+						var y = reader.ReadSingle();
+						var z = reader.ReadSingle();
+						node.Direction = new Vector3(x,y,z);
+					}
 					nodes[i] = node;
 				}
 				var road = new RoadInfo() {
 					BasePos = base_pos,
-					Nodes = nodes
+					Nodes = nodes,
+					Kind = road_kind,
+					LaneCount = lanes
 				};
 				road_list.Add(road);
 			}

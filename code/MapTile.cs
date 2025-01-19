@@ -65,7 +65,7 @@ public sealed class MapTile : Component
 				if (road == null) {
 					return;
 				}
-				road.SetRoad(r.Nodes, ParentRegion.MatRoad);
+				road.SetRoad(r, ParentRegion.MatRoad, ParentRegion.MatSidewalk);
 			}
 			await WaitStep();
 		}
@@ -75,20 +75,14 @@ public sealed class MapTile : Component
 	private static int StepCount = 0;
 	private async Task WaitStep() {
 		StepCount++;
-		if (StepCount > 5) {
+		if (StepCount > 50) {
 			StepCount = 0;
 			await GameTask.Yield();
 		}
 	}
 
 	private async void FetchTerrain() {
-		var empty = new System.Net.Http.ByteArrayContent(new byte[0]);
-		var headers = new Dictionary<string, string>();
-		var token = new System.Threading.CancellationToken();
-		var bytes = await Http.RequestBytesAsync("http://"+ParentRegion.HOST+"/"+ParentRegion.RegionName+"/tile"+TileNumber, "GET", empty, headers, token );
-
-		var stream = new System.IO.MemoryStream(bytes);
-		var reader = new System.IO.BinaryReader(stream);
+		var reader = await ParentRegion.FetchData("tile"+TileNumber);
 
 		var elev_base = reader.ReadSingle() - BASE_ELEVATION;
 		var elev_range = reader.ReadSingle();
@@ -120,7 +114,7 @@ public sealed class MapTile : Component
 
 		var mesh = TrySpawnMesh("Terrain",Vector3.Up * Region.ScaleElevation(elev_base));
 		if (mesh != null) {
-			mesh.SetTerrain(vertices,indices,ParentRegion.MatGround);
+			mesh.SetTerrain(vertices,indices,ParentRegion.MatGround,ParentRegion.GroundColor);
 		}
 	}
 }
